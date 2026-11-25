@@ -1,6 +1,6 @@
 # Handoff: Flutter fitness app ("PACE")
 
-Read this file, then `docs/gap-audit.md`, then `README.md`. Last updated 2026-11-26.
+Read this file, then `docs/gap-audit.md`, `docs/design-spec.md`, then `README.md`. Last updated 2026-11-26.
 
 ## Who and what
 
@@ -51,7 +51,7 @@ Spacing scale 8, 16, 24, 32, 40, 48 (12 also appears). Corners 12 px. Minimum ta
 Rules from the sheet: red means action, green confirms a logged set, always pair color with a label, never put small text directly over a busy photo.
 Screens (39): Discover, Plan detail, 2-set starter intro, Workout (set ready, rest running, rest complete, set 2 ready, two sets logged), Review session, Summary; Welcome, Login, Create account, Login error, Create account loading, Home, Home with no plans; Discover (new, no results), Share plan, Report plan; Create plan, Plan exercises, Add exercise, reordered, delete, after delete; Active workout, last set, Workout summary, Share workout; Profile (public, private, no activity), Settings; four toasts. Bottom tabs: Home, Discover, Create, Profile.
 
-The three Figma PDF exports are NOT in the repo (they contain photos). Sean must supply them again, or a Figma link, for pixel comparison.
+The full text description of every component, state and all 39 screens is in `docs/design-spec.md`. It is the design reference, because the original Figma PDF exports are not in this repo (they contain photos of uncertain license). Sean no longer has the original attachments in his chat tool; he keeps copies on his PC only. Without the PDFs, pixel golden tests cannot compare to Figma exports: build the spec's layouts, ask Sean for screenshots from Allen for any detail the spec marks "confirm", and say so in the deviation list.
 
 ## Backend facts you need
 
