@@ -14,9 +14,34 @@ class FitnessApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Fitness App',
+      title: 'PACE',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
+      builder: (context, child) {
+        if (AppTokens.desktop(context)) {
+          final theme = Theme.of(context);
+          return Theme(
+            data: theme.copyWith(
+              visualDensity: VisualDensity.standard,
+              materialTapTargetSize: MaterialTapTargetSize.padded,
+              scaffoldBackgroundColor: AppTokens.chrome,
+              appBarTheme: theme.appBarTheme.copyWith(
+                backgroundColor: AppTokens.chrome,
+              ),
+            ),
+            child: child!,
+          );
+        }
+        return ColoredBox(
+          color: AppTokens.chrome,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 680),
+              child: child,
+            ),
+          ),
+        );
+      },
       home: const AuthGate(),
     );
   }

@@ -9,14 +9,13 @@ abstract class AuthRepository {
   /// Emits the signed-in user id (or null) now and on every change.
   Stream<String?> authStateChanges();
   String? get currentUserId;
+  String? get currentUserEmail;
 
   Future<void> signIn({required String email, required String password});
   Future<SignUpResult> signUp({
     required String email,
     required String password,
     required String username,
-    required double heightCm,
-    required double weightKg,
   });
   Future<void> signOut();
   Future<AppUser?> getProfile();
@@ -30,6 +29,7 @@ abstract class PlanRepository {
   Future<List<Exercise>> getExercises();
   Future<int> createPlan(NewPlan plan);
   Future<void> savePlan(int planId);
+  Future<void> unsavePlan(int planId);
 }
 
 abstract class WorkoutRepository {

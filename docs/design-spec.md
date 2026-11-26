@@ -23,7 +23,7 @@ Type (Inter): Display 28/32 bold, Title 20/24 semibold, Body 16/24 regular, Capt
 Spacing scale 8 / 16 / 24 / 32 / 40 / 48, plus 12. Screen side margin 24. Corner radius 12 (cards, inputs, buttons, chips, set chips). Minimum tap 44, workout actions 56. Primary button and inputs are about 56 high.
 Rules: red means action; green confirms a logged set; always use a label next to color; never put small text directly over a busy photo.
 
-Photography (three pictures in the foundations sheet; placeholders until the license is confirmed):
+Photography (three pictures in the foundations sheet, now included from the original exports with the user's clearance):
 1. Training / plan previews: woman in a dark gym holding dumbbells, black background.
 2. Community / welcome: man and woman back to back holding dumbbells, cut out on dark.
 3. Completion / positive reinforcement: man and woman high-fiving, cut out on dark.

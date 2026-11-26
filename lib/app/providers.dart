@@ -18,29 +18,34 @@ class AppConfig {
   static const supabaseKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
   static const forceFake = bool.fromEnvironment('USE_FAKE');
 
-  static bool get useFake => forceFake || supabaseUrl.isEmpty || supabaseKey.isEmpty;
+  static bool get useFake =>
+      forceFake || supabaseUrl.isEmpty || supabaseKey.isEmpty;
 }
 
 final fakeStoreProvider = Provider<FakeStore>((ref) => FakeStore.seeded());
 
-final authRepositoryProvider = Provider<AuthRepository>((ref) =>
-    AppConfig.useFake
-        ? FakeAuthRepository(ref.watch(fakeStoreProvider))
-        : SupabaseAuthRepository(Supabase.instance.client));
+final authRepositoryProvider = Provider<AuthRepository>(
+  (ref) => AppConfig.useFake
+      ? FakeAuthRepository(ref.watch(fakeStoreProvider))
+      : SupabaseAuthRepository(Supabase.instance.client),
+);
 
-final planRepositoryProvider = Provider<PlanRepository>((ref) =>
-    AppConfig.useFake
-        ? FakePlanRepository(ref.watch(fakeStoreProvider))
-        : SupabasePlanRepository(Supabase.instance.client));
+final planRepositoryProvider = Provider<PlanRepository>(
+  (ref) => AppConfig.useFake
+      ? FakePlanRepository(ref.watch(fakeStoreProvider))
+      : SupabasePlanRepository(Supabase.instance.client),
+);
 
-final workoutRepositoryProvider = Provider<WorkoutRepository>((ref) =>
-    AppConfig.useFake
-        ? FakeWorkoutRepository(ref.watch(fakeStoreProvider))
-        : SupabaseWorkoutRepository(Supabase.instance.client));
+final workoutRepositoryProvider = Provider<WorkoutRepository>(
+  (ref) => AppConfig.useFake
+      ? FakeWorkoutRepository(ref.watch(fakeStoreProvider))
+      : SupabaseWorkoutRepository(Supabase.instance.client),
+);
 
 /// Signed-in user id, or null. Everything below re-runs when it changes.
 final authStateProvider = StreamProvider<String?>(
-    (ref) => ref.watch(authRepositoryProvider).authStateChanges());
+  (ref) => ref.watch(authRepositoryProvider).authStateChanges(),
+);
 
 final profileProvider = FutureProvider<AppUser?>((ref) {
   ref.watch(authStateProvider);
@@ -57,14 +62,19 @@ final savedPlansProvider = FutureProvider<List<Plan>>((ref) {
   return ref.watch(planRepositoryProvider).getSavedPlans();
 });
 
-final planExercisesProvider =
-    FutureProvider.family<List<PlanExercise>, int>((ref, planId) =>
-        ref.watch(planRepositoryProvider).getPlanExercises(planId));
+final planExercisesProvider = FutureProvider.family<List<PlanExercise>, int>((
+  ref,
+  planId,
+) {
+  ref.watch(authStateProvider);
+  return ref.watch(planRepositoryProvider).getPlanExercises(planId);
+});
 
 final exercisesProvider = FutureProvider<List<Exercise>>(
-    (ref) => ref.watch(planRepositoryProvider).getExercises());
+  (ref) => ref.watch(planRepositoryProvider).getExercises(),
+);
 
 final recentLogsProvider = FutureProvider<List<WorkoutLog>>((ref) {
   ref.watch(authStateProvider);
-  return ref.watch(workoutRepositoryProvider).getRecentLogs();
+  return ref.watch(workoutRepositoryProvider).getRecentLogs(limit: 200);
 });

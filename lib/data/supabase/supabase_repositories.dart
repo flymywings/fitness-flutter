@@ -12,7 +12,8 @@ import '../../domain/repositories/repositories.dart';
 
 /// Joins plans -> users through plans.creator_id. The explicit hint avoids
 /// PGRST201 ("more than one relationship") if saved_plans ever gets a primary key.
-const _planCols = 'id,title,difficulty,duration_weeks,is_public,created_at,'
+const _planCols =
+    'id,title,difficulty,duration_weeks,is_public,created_at,'
     'category,creator_id,users!plans_creator_id_fkey(username)';
 
 /// Turns any error into a message that is safe to show to the user.
@@ -29,7 +30,8 @@ AppException friendlyError(Object e) {
     if (m.contains('already registered') || m.contains('already been')) {
       return AppException('That email is already registered.');
     }
-    if (m.contains('missing email') || m.contains('missing password') ||
+    if (m.contains('missing email') ||
+        m.contains('missing password') ||
         m.contains('anonymous')) {
       return AppException('Enter your email and password.');
     }
@@ -55,8 +57,10 @@ AppException friendlyError(Object e) {
     return AppException('Could not reach the database. Try again.');
   }
   final s = e.toString().toLowerCase();
-  if (s.contains('socket') || s.contains('clientexception') ||
-      s.contains('failed host lookup') || s.contains('network')) {
+  if (s.contains('socket') ||
+      s.contains('clientexception') ||
+      s.contains('failed host lookup') ||
+      s.contains('network')) {
     return AppException('No internet connection.');
   }
   return AppException('Something went wrong. Try again.');
@@ -73,6 +77,9 @@ class SupabaseAuthRepository implements AuthRepository {
   String? get currentUserId => _c.auth.currentUser?.id;
 
   @override
+  String? get currentUserEmail => _c.auth.currentUser?.email;
+
+  @override
   Stream<String?> authStateChanges() async* {
     yield _c.auth.currentSession?.user.id;
     await for (final s in _c.auth.onAuthStateChange) {
@@ -83,8 +90,7 @@ class SupabaseAuthRepository implements AuthRepository {
   @override
   Future<void> signIn({required String email, required String password}) async {
     try {
-      await _c.auth
-          .signInWithPassword(email: email.trim(), password: password);
+      await _c.auth.signInWithPassword(email: email.trim(), password: password);
       await _ensureProfile();
     } catch (e) {
       throw friendlyError(e);
@@ -96,8 +102,6 @@ class SupabaseAuthRepository implements AuthRepository {
     required String email,
     required String password,
     required String username,
-    required double heightCm,
-    required double weightKg,
   }) async {
     try {
       final res = await _c.auth.signUp(
@@ -105,7 +109,7 @@ class SupabaseAuthRepository implements AuthRepository {
         password: password,
         // Kept in user metadata so the profile row can be created on first
         // login when email confirmation delays the session.
-        data: {'username': username, 'height_cm': heightCm, 'weight_kg': weightKg},
+        data: {'username': username},
       );
       if (res.session == null) return SignUpResult.confirmEmail;
       await _ensureProfile();
@@ -119,18 +123,16 @@ class SupabaseAuthRepository implements AuthRepository {
   Future<void> _ensureProfile() async {
     final user = _c.auth.currentUser;
     if (user == null) return;
-    final row =
-        await _c.from('users').select('id').eq('id', user.id).maybeSingle();
+    final row = await _c
+        .from('users')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
     if (row != null) return;
     final m = user.userMetadata ?? {};
     final name = m['username'] as String?;
     if (name == null) return;
-    await _c.from('users').insert({
-      'id': user.id,
-      'username': name,
-      'height_cm': (m['height_cm'] as num?)?.toDouble() ?? 0,
-      'weight_kg': (m['weight_kg'] as num?)?.toDouble() ?? 0,
-    });
+    await _c.from('users').insert({'id': user.id, 'username': name});
   }
 
   @override
@@ -149,7 +151,7 @@ class SupabaseAuthRepository implements AuthRepository {
       if (id == null) return null;
       final row = await _c
           .from('users')
-          .select('id,username,height_cm,weight_kg,created_at')
+          .select('id,username,created_at')
           .eq('id', id)
           .maybeSingle();
       return row == null ? null : AppUser.fromJson(row);
@@ -162,6 +164,25 @@ class SupabaseAuthRepository implements AuthRepository {
 class SupabasePlanRepository implements PlanRepository {
   SupabasePlanRepository(this._c);
   final SupabaseClient _c;
+  Future<bool>? _restColumn;
+
+  Future<bool> _hasRestColumn() {
+    return _restColumn ??= _detectRestColumn();
+  }
+
+  Future<bool> _detectRestColumn() async {
+    try {
+      await _c.from('plan_exercises').select('rest').limit(0);
+      return true;
+    } on PostgrestException catch (e) {
+      if (e.code == '42703' || e.code == 'PGRST204') return false;
+      _restColumn = null;
+      rethrow;
+    } catch (_) {
+      _restColumn = null;
+      rethrow;
+    }
+  }
 
   String get _uid {
     final id = _c.auth.currentUser?.id;
@@ -204,10 +225,13 @@ class SupabasePlanRepository implements PlanRepository {
   @override
   Future<List<PlanExercise>> getPlanExercises(int planId) async {
     try {
+      final hasRest = await _hasRestColumn();
       final rows = await _c
           .from('plan_exercises')
           .select(
-              'sets,reps,day_of_week,sort_order,exercises!inner(id,name,primary_muscle_group)')
+            'sets,reps,day_of_week,sort_order,${hasRest ? 'rest,' : ''}'
+            'exercises!inner(id,name,primary_muscle_group)',
+          )
           .eq('plan_id', planId)
           .order('day_of_week')
           .order('sort_order');
@@ -233,6 +257,15 @@ class SupabasePlanRepository implements PlanRepository {
   @override
   Future<int> createPlan(NewPlan plan) async {
     try {
+      final hasRest = plan.exercises.isNotEmpty && await _hasRestColumn();
+      if (!hasRest &&
+          plan.exercises.any(
+            (e) => e.restSeconds != PlanExercise.defaultRestSeconds,
+          )) {
+        throw AppException(
+          'This database does not support custom rest times yet.',
+        );
+      }
       final created = await _c
           .from('plans')
           .insert({
@@ -242,7 +275,9 @@ class SupabasePlanRepository implements PlanRepository {
             'difficulty': plan.difficulty.db,
             'category': plan.category.db,
             'is_public': plan.isPublic,
-            'created_at': _date(DateTime.now()), // column is a date with no default
+            'created_at': _date(
+              DateTime.now(),
+            ), // column is a date with no default
           })
           .select('id')
           .single();
@@ -257,7 +292,8 @@ class SupabasePlanRepository implements PlanRepository {
               'sort_order': i + 1,
               'sets': plan.exercises[i].sets,
               'reps': plan.exercises[i].reps,
-            }
+              if (hasRest) 'rest': plan.exercises[i].restSeconds,
+            },
         ]);
       }
       return id;
@@ -269,7 +305,36 @@ class SupabasePlanRepository implements PlanRepository {
   @override
   Future<void> savePlan(int planId) async {
     try {
-      await _c.from('saved_plans').insert({'plan_id': planId}); // user_id defaults to auth.uid()
+      await _c.from('saved_plans').insert({
+        'plan_id': planId,
+      }); // user_id defaults to auth.uid()
+    } catch (e) {
+      throw friendlyError(e);
+    }
+  }
+
+  @override
+  Future<void> unsavePlan(int planId) async {
+    try {
+      final uid = _uid;
+      final deleted = await _c
+          .from('saved_plans')
+          .delete()
+          .eq('user_id', uid)
+          .eq('plan_id', planId)
+          .select('plan_id');
+      if (deleted.isNotEmpty) return;
+      final remaining = await _c
+          .from('saved_plans')
+          .select('plan_id')
+          .eq('user_id', uid)
+          .eq('plan_id', planId)
+          .limit(1);
+      if (remaining.isNotEmpty) {
+        throw AppException(
+          'The server did not allow removing this saved plan.',
+        );
+      }
     } catch (e) {
       throw friendlyError(e);
     }
@@ -295,12 +360,13 @@ class SupabaseWorkoutRepository implements WorkoutRepository {
             'logged_at': _date(DateTime.now()),
             'total_sets_done': l.setsDone,
             'total_reps_done': l.repsDone,
-          }
+          },
       ]);
     } on PostgrestException catch (e) {
       if (e.code == '42501') {
         throw AppException(
-            'Saving workouts is not enabled on the server yet. Ask the database owner to add an insert policy on workout_logs.');
+          'Saving workouts is not enabled on the server yet. Ask the database owner to add an insert policy on workout_logs.',
+        );
       }
       throw friendlyError(e);
     } catch (e) {
@@ -311,10 +377,14 @@ class SupabaseWorkoutRepository implements WorkoutRepository {
   @override
   Future<List<WorkoutLog>> getRecentLogs({int limit = 5}) async {
     try {
+      final uid = _c.auth.currentUser?.id;
+      if (uid == null) return [];
       final rows = await _c
           .from('workout_logs')
           .select(
-              'id,exercise_id,plan_id,logged_at,total_sets_done,total_reps_done,exercises(name)')
+            'id,exercise_id,plan_id,logged_at,total_sets_done,total_reps_done,exercises(name)',
+          )
+          .eq('user_id', uid)
           .order('logged_at', ascending: false)
           .order('id', ascending: false)
           .limit(limit);

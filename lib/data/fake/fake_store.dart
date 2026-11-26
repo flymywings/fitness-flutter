@@ -101,23 +101,18 @@ class FakeStore {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
-    const users = <(String, String, String, double, double)>[
-      ('a0000000-0000-0000-0000-000000000001', 'john@seed.test', 'john_doe69', 180, 82),
-      ('a0000000-0000-0000-0000-000000000002', 'jane@seed.test', 'janeganda<3', 165, 58),
-      ('a0000000-0000-0000-0000-000000000003', 'mika@seed.test', 'mika_lifts', 172, 70),
-      ('a0000000-0000-0000-0000-000000000004', 'carlos@seed.test', 'carlos_fit', 178, 76),
-      ('a0000000-0000-0000-0000-000000000005', 'ana@seed.test', 'ana_runs', 160, 52),
+    const users = <(String, String, String)>[
+      ('a0000000-0000-0000-0000-000000000001', 'john@seed.test', 'john_doe69'),
+      ('a0000000-0000-0000-0000-000000000002', 'jane@seed.test', 'janeganda<3'),
+      ('a0000000-0000-0000-0000-000000000003', 'mika@seed.test', 'mika_lifts'),
+      ('a0000000-0000-0000-0000-000000000004', 'carlos@seed.test', 'carlos_fit'),
+      ('a0000000-0000-0000-0000-000000000005', 'ana@seed.test', 'ana_runs'),
     ];
     for (final u in users) {
       accounts.add(FakeAccount(
         u.$2,
         seedPassword,
-        AppUser(
-            id: u.$1,
-            username: u.$3,
-            heightCm: u.$4,
-            weightKg: u.$5,
-            createdAt: today),
+        AppUser(id: u.$1, username: u.$3, createdAt: today),
       ));
     }
     String uid(int n) => users[n - 1].$1;

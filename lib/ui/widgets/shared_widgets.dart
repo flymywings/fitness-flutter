@@ -15,32 +15,56 @@ class PrimaryButton extends StatelessWidget {
     required this.onPressed,
     this.loading = false,
     this.icon,
+    this.loadingLabel,
   });
   final String label;
   final VoidCallback? onPressed;
   final bool loading;
   final IconData? icon;
+  final String? loadingLabel;
 
   @override
   Widget build(BuildContext context) {
-    final child = loading
-        ? const SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-                strokeWidth: 2, color: AppTokens.onPrimary))
-        : Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 20),
-                const SizedBox(width: AppTokens.space2),
-              ],
-              Text(label),
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton(
+        onPressed: loading ? null : onPressed,
+        style: loading
+            ? FilledButton.styleFrom(
+                disabledBackgroundColor: AppTokens.primaryPressed,
+                disabledForegroundColor: AppTokens.onPrimary,
+              ).copyWith(
+                backgroundColor: const WidgetStatePropertyAll(
+                  AppTokens.primaryPressed,
+                ),
+              )
+            : null,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (loading) ...[
+              const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppTokens.onPrimary,
+                ),
+              ),
+              const SizedBox(width: AppTokens.space2),
+            ] else if (icon != null) ...[
+              Icon(icon, size: 20),
+              const SizedBox(width: AppTokens.space2),
             ],
-          );
-    return FilledButton(
-        onPressed: loading ? null : onPressed, child: child);
+            Flexible(
+              child: Text(
+                loading ? loadingLabel ?? label : label,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -56,6 +80,11 @@ class AppTextField extends StatelessWidget {
     this.textInputAction,
     this.onSubmitted,
     this.autofillHints,
+    this.suffixIcon,
+    this.helperText,
+    this.errorText,
+    this.enabled = true,
+    this.onChanged,
   });
   final String label;
   final TextEditingController controller;
@@ -65,13 +94,21 @@ class AppTextField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final ValueChanged<String>? onSubmitted;
   final Iterable<String>? autofillHints;
+  final Widget? suffixIcon;
+  final String? helperText;
+  final String? errorText;
+  final bool enabled;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: Theme.of(context).textTheme.bodyMedium),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 14),
+        ),
         const SizedBox(height: AppTokens.space2),
         TextField(
           controller: controller,
@@ -80,7 +117,18 @@ class AppTextField extends StatelessWidget {
           textInputAction: textInputAction,
           onSubmitted: onSubmitted,
           autofillHints: autofillHints,
-          decoration: InputDecoration(hintText: hint),
+          enabled: enabled,
+          onChanged: onChanged,
+          decoration: InputDecoration(
+            hintText: hint,
+            suffixIcon: suffixIcon,
+            helperText: helperText,
+            errorText: errorText,
+            errorMaxLines: 3,
+            constraints: const BoxConstraints(
+              minHeight: AppTokens.actionHeight,
+            ),
+          ),
         ),
       ],
     );
@@ -100,16 +148,21 @@ class ErrorMessage extends StatelessWidget {
         const Icon(Icons.error_outline, color: AppTokens.error, size: 18),
         const SizedBox(width: AppTokens.space2),
         Expanded(
-          child: Text(message,
-              style: const TextStyle(
-                  color: AppTokens.error, fontSize: AppTokens.fontSmall)),
+          child: Text(
+            message,
+            style: const TextStyle(
+              color: AppTokens.error,
+              fontSize: AppTokens.fontSmall,
+            ),
+          ),
         ),
       ],
     );
   }
 }
 
-String friendly(Object e) => e is AppException ? e.message : 'Something went wrong. Try again.';
+String friendly(Object e) =>
+    e is AppException ? e.message : 'Something went wrong. Try again.';
 
 /// Centered empty-state message.
 class EmptyState extends StatelessWidget {
@@ -127,9 +180,11 @@ class EmptyState extends StatelessWidget {
           children: [
             Icon(icon, size: 40, color: AppTokens.textSecondary),
             const SizedBox(height: AppTokens.space3),
-            Text(message,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
           ],
         ),
       ),
@@ -185,9 +240,8 @@ class AsyncBody<T> extends StatelessWidget {
         child: Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => ErrorState(e, onRetry: onRetry),
-      data: (d) => (isEmpty?.call(d) ?? false)
-          ? EmptyState(emptyMessage)
-          : builder(d),
+      data: (d) =>
+          (isEmpty?.call(d) ?? false) ? EmptyState(emptyMessage) : builder(d),
     );
   }
 }
@@ -209,22 +263,32 @@ class CategoryChip extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(right: AppTokens.space2),
       child: InkWell(
-        borderRadius: BorderRadius.circular(AppTokens.radiusPill),
+        borderRadius: BorderRadius.circular(AppTokens.radius),
         onTap: onTap,
         child: Container(
-          constraints: const BoxConstraints(minHeight: AppTokens.minTap - 8),
-          padding: const EdgeInsets.symmetric(horizontal: AppTokens.space4),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected ? AppTokens.primary : AppTokens.surface,
-            borderRadius: BorderRadius.circular(AppTokens.radiusPill),
-            border: Border.all(
-                color: selected ? AppTokens.primary : AppTokens.border),
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: EdgeInsets.symmetric(
+            horizontal: AppTokens.desktop(context) ? 28 : 18,
           ),
-          child: Text(label,
+          decoration: BoxDecoration(
+            color: selected ? AppTokens.textPrimary : AppTokens.surface,
+            borderRadius: BorderRadius.circular(AppTokens.radius),
+            border: Border.all(
+              color: selected ? AppTokens.textPrimary : AppTokens.controlBorder,
+            ),
+          ),
+          child: Center(
+            widthFactor: 1,
+            heightFactor: 1,
+            child: Text(
+              label,
               style: TextStyle(
-                  color: selected ? AppTokens.onPrimary : AppTokens.textSecondary,
-                  fontWeight: FontWeight.w600)),
+                color: selected ? AppTokens.background : AppTokens.textPrimary,
+                fontSize: AppTokens.fontSmall,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -268,47 +332,68 @@ class PlanCard extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(plan.category.label,
-                          style: const TextStyle(
-                              color: AppTokens.primary,
-                              fontSize: AppTokens.fontSmall)),
+                      child: Text(
+                        plan.category.label,
+                        style: const TextStyle(
+                          color: AppTokens.primary,
+                          fontSize: AppTokens.fontSmall,
+                        ),
+                      ),
                     ),
                     if (!plan.isPublic) ...[
-                      const Icon(Icons.lock_outline,
-                          size: 14, color: AppTokens.textSecondary),
+                      const Icon(
+                        Icons.lock_outline,
+                        size: 14,
+                        color: AppTokens.textSecondary,
+                      ),
                       const SizedBox(width: AppTokens.space1),
                     ],
-                    Text(plan.difficulty.db,
-                        style: text.bodySmall
-                            ?.copyWith(fontWeight: FontWeight.w700)),
+                    Text(
+                      plan.difficulty.db,
+                      style: text.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     if (onSave != null)
                       IconButton(
                         tooltip: saved ? 'Saved' : 'Save plan',
                         onPressed: saved ? null : onSave,
                         icon: Icon(
-                            saved ? Icons.bookmark : Icons.bookmark_border,
-                            color: saved
-                                ? AppTokens.primary
-                                : AppTokens.textSecondary),
+                          saved ? Icons.bookmark : Icons.bookmark_border,
+                          color: saved
+                              ? AppTokens.primary
+                              : AppTokens.textSecondary,
+                        ),
                       ),
                   ],
                 ),
                 Text(plan.title, style: text.titleLarge),
                 const SizedBox(height: AppTokens.space1),
-                Row(children: [
-                  const Icon(Icons.schedule,
-                      size: 14, color: AppTokens.textSecondary),
-                  const SizedBox(width: AppTokens.space1),
-                  Text('${plan.durationWeeks} weeks', style: text.bodySmall),
-                ]),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.schedule,
+                      size: 14,
+                      color: AppTokens.textSecondary,
+                    ),
+                    const SizedBox(width: AppTokens.space1),
+                    Text('${plan.durationWeeks} weeks', style: text.bodySmall),
+                  ],
+                ),
                 const SizedBox(height: AppTokens.space1),
-                Row(children: [
-                  const Icon(Icons.person_outline,
-                      size: 14, color: AppTokens.textSecondary),
-                  const SizedBox(width: AppTokens.space1),
-                  Flexible(
-                      child: Text(plan.creatorName, style: text.bodySmall)),
-                ]),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.person_outline,
+                      size: 14,
+                      color: AppTokens.textSecondary,
+                    ),
+                    const SizedBox(width: AppTokens.space1),
+                    Flexible(
+                      child: Text(plan.creatorName, style: text.bodySmall),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -341,27 +426,34 @@ class SetToggleButton extends StatelessWidget {
         onTap: onTap,
         child: Container(
           constraints: const BoxConstraints(
-              minWidth: 84, minHeight: AppTokens.minTap),
+            minWidth: 84,
+            minHeight: AppTokens.minTap,
+          ),
           padding: const EdgeInsets.symmetric(horizontal: AppTokens.space3),
           decoration: BoxDecoration(
             color: done ? AppTokens.primary : AppTokens.surfaceAlt,
             borderRadius: BorderRadius.circular(AppTokens.radiusSmall),
-            border:
-                Border.all(color: done ? AppTokens.primary : AppTokens.border),
+            border: Border.all(
+              color: done ? AppTokens.primary : AppTokens.border,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(done ? Icons.check_circle : Icons.circle_outlined,
-                  size: 18,
-                  color:
-                      done ? AppTokens.onPrimary : AppTokens.textSecondary),
+              Icon(
+                done ? Icons.check_circle : Icons.circle_outlined,
+                size: 18,
+                color: done ? AppTokens.onPrimary : AppTokens.textSecondary,
+              ),
               const SizedBox(width: AppTokens.space2),
-              Text(label,
-                  style: const TextStyle(
-                      color: AppTokens.textPrimary,
-                      fontWeight: FontWeight.w600)),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppTokens.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
         ),
@@ -376,10 +468,12 @@ class SectionTitle extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(
-            top: AppTokens.space4, bottom: AppTokens.space3),
-        child: Text(text, style: Theme.of(context).textTheme.titleLarge),
-      );
+    padding: const EdgeInsets.only(
+      top: AppTokens.space4,
+      bottom: AppTokens.space3,
+    ),
+    child: Text(text, style: Theme.of(context).textTheme.titleLarge),
+  );
 }
 
 void showSnack(BuildContext context, String msg) {

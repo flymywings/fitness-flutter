@@ -1,4 +1,4 @@
-﻿import 'package:fitness_app/app/app.dart';
+import 'package:fitness_app/app/app.dart';
 import 'package:fitness_app/app/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,47 +11,103 @@ Future<void> settle(WidgetTester t) async {
   }
 }
 
+Future<void> tapVisible(WidgetTester tester, Finder target) async {
+  if (target.hitTestable().evaluate().isEmpty) {
+    await tester.ensureVisible(target);
+    await tester.pump();
+  }
+  await tester.tap(target);
+}
+
 void main() {
-  testWidgets('landing -> login error -> login -> home -> plans -> workout',
-      (t) async {
+  testWidgets(
+    'welcome -> login error -> login -> home -> discover -> workout',
+    (t) async {
+      await t.pumpWidget(const ProviderScope(child: FitnessApp()));
+      await settle(t);
+      expect(find.text('PACE'), findsOneWidget);
+
+      await tapVisible(t, find.text('Log in'));
+      await t.pumpAndSettle();
+
+      final logIn = find.widgetWithText(FilledButton, 'Log in');
+      await tapVisible(t, logIn);
+      await settle(t);
+      expect(find.text('Enter your email address.'), findsOneWidget);
+
+      await t.enterText(find.byType(TextField).at(0), 'john@seed.test');
+      await t.enterText(find.byType(TextField).at(1), 'Password123!');
+      await tapVisible(t, logIn);
+      await settle(t);
+
+      expect(find.text('Saved Plans'), findsOneWidget);
+
+      await t.tap(find.text('Discover').last);
+      await settle(t);
+
+      await tapVisible(t, find.text('Strength'));
+      final search = find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField &&
+            widget.decoration?.hintText == 'Search by goal, plan or coach',
+      );
+      await t.scrollUntilVisible(
+        search,
+        -160,
+        scrollable: find.byType(Scrollable).first,
+      );
+      // Other users' private plans are hidden.
+      await t.enterText(search, 'Deload Week');
+      await settle(t);
+      expect(find.text('No plans found'), findsOneWidget);
+      expect(find.text('Deload Week (Private)'), findsNothing);
+
+      await t.enterText(search, 'Fat Burn');
+      await settle(t);
+      final plan = find.text('Fat Burn Circuit');
+      await tapVisible(t, plan);
+      await settle(t);
+
+      await t.tap(find.text('Start workout'));
+      await settle(t);
+      expect(find.text('Fat Burn Circuit'), findsOneWidget);
+      expect(find.text('Burpee'), findsOneWidget);
+
+      final firstSet = find.byTooltip('Set 1, ready').first;
+      await tapVisible(t, firstSet);
+      await t.pump();
+      expect(find.text('1 / 8 sets completed · 0 skipped'), findsOneWidget);
+    },
+  );
+
+  testWidgets('registration and profile work without height or weight', (
+    t,
+  ) async {
     await t.pumpWidget(const ProviderScope(child: FitnessApp()));
     await settle(t);
-    expect(find.text('Fitness App'), findsOneWidget);
-
-    await t.tap(find.text('Login'));
+    final createFromWelcome = find.widgetWithText(
+      OutlinedButton,
+      'Create account',
+    );
+    await tapVisible(t, createFromWelcome);
     await t.pumpAndSettle();
 
-    // Empty submit shows a readable error, not a raw server message.
-    await t.tap(find.text('Submit'));
-    await settle(t);
-    expect(find.text('Enter your email and password.'), findsOneWidget);
-
-    await t.enterText(find.byType(TextField).at(0), 'john@seed.test');
-    await t.enterText(find.byType(TextField).at(1), 'Password123!');
-    await t.tap(find.text('Submit'));
+    await t.enterText(find.byType(TextField).at(0), 'Alex Morgan');
+    await t.enterText(find.byType(TextField).at(1), 'new@seed.test');
+    await t.enterText(find.byType(TextField).at(2), 'Password123!');
+    final createAccount = find.widgetWithText(FilledButton, 'Create account');
+    await tapVisible(t, createAccount);
     await settle(t);
 
-    expect(find.text('john_doe69'), findsOneWidget);
     expect(find.text('Saved Plans'), findsOneWidget);
-
-    await t.tap(find.text('Plans').last);
+    await t.tap(find.text('Profile'));
     await settle(t);
-    expect(find.text('Fat Burn Circuit'), findsOneWidget);
-    // Other users' private plans are hidden.
-    expect(find.text('Deload Week (Private)'), findsNothing);
-
-    await t.tap(find.text('Fat Burn Circuit'));
-    await settle(t);
-    expect(find.text('Active Workout'), findsOneWidget);
-    expect(find.text('Burpee'), findsOneWidget);
-
-    await t.tap(find.text('Set 1').first);
-    await t.pump();
-    expect(find.textContaining('1 / '), findsOneWidget);
+    expect(find.text('Alex Morgan'), findsOneWidget);
+    expect(find.text('Height'), findsNothing);
+    expect(find.text('Weight'), findsNothing);
   });
 
   testWidgets('app runs on fake data when no keys are provided', (t) async {
     expect(AppConfig.useFake, isTrue);
   });
 }
-

@@ -17,6 +17,10 @@ class FakeAuthRepository implements AuthRepository {
   String? get currentUserId => _s.currentUserId;
 
   @override
+  String? get currentUserEmail =>
+      _s.accounts.where((a) => a.user.id == currentUserId).firstOrNull?.email;
+
+  @override
   Stream<String?> authStateChanges() async* {
     yield _s.currentUserId;
     yield* _s.authChanges;
@@ -42,8 +46,6 @@ class FakeAuthRepository implements AuthRepository {
     required String email,
     required String password,
     required String username,
-    required double heightCm,
-    required double weightKg,
   }) async {
     await Future<void>.delayed(_latency);
     final e = email.trim().toLowerCase();
@@ -53,8 +55,6 @@ class FakeAuthRepository implements AuthRepository {
     final user = AppUser(
       id: 'fake-${_s.accounts.length + 1}',
       username: username,
-      heightCm: heightCm,
-      weightKg: weightKg,
       createdAt: DateTime.now(),
     );
     _s.accounts.add(FakeAccount(e, password, user));
@@ -87,11 +87,13 @@ class FakePlanRepository implements PlanRepository {
   Future<List<Plan>> getPlans({Category? category}) async {
     await Future<void>.delayed(_latency);
     final uid = _uid;
-    final list = _s.plans
-        .where((p) => p.isPublic || p.creatorId == uid)
-        .where((p) => category == null || p.category == category)
-        .toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final list =
+        _s.plans
+            .where((p) => p.isPublic || p.creatorId == uid)
+            .where((p) => category == null || p.category == category)
+            .map(_withSaveCount)
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return list;
   }
 
@@ -99,8 +101,15 @@ class FakePlanRepository implements PlanRepository {
   Future<List<Plan>> getSavedPlans() async {
     await Future<void>.delayed(_latency);
     final ids = _s.saved[_uid] ?? {};
-    return _s.plans.where((p) => ids.contains(p.id)).toList();
+    return _s.plans
+        .where((p) => ids.contains(p.id))
+        .map(_withSaveCount)
+        .toList();
   }
+
+  Plan _withSaveCount(Plan plan) => plan.withSaveCount(
+    _s.saved.values.where((ids) => ids.contains(plan.id)).length,
+  );
 
   @override
   Future<List<PlanExercise>> getPlanExercises(int planId) async {
@@ -126,17 +135,19 @@ class FakePlanRepository implements PlanRepository {
     final me = _s.userById(uid);
     final id = _s.nextPlanId();
     final now = DateTime.now();
-    _s.plans.add(Plan(
-      id: id,
-      title: plan.title,
-      durationWeeks: plan.durationWeeks,
-      difficulty: plan.difficulty,
-      isPublic: plan.isPublic,
-      createdAt: DateTime(now.year, now.month, now.day),
-      category: plan.category,
-      creatorId: uid,
-      creatorName: me?.username ?? 'me',
-    ));
+    _s.plans.add(
+      Plan(
+        id: id,
+        title: plan.title,
+        durationWeeks: plan.durationWeeks,
+        difficulty: plan.difficulty,
+        isPublic: plan.isPublic,
+        createdAt: DateTime(now.year, now.month, now.day),
+        category: plan.category,
+        creatorId: uid,
+        creatorName: me?.username ?? 'me',
+      ),
+    );
     for (var i = 0; i < plan.exercises.length; i++) {
       final x = plan.exercises[i];
       final ex = _s.exercises.firstWhere((e) => e.id == x.exerciseId);
@@ -150,6 +161,7 @@ class FakePlanRepository implements PlanRepository {
           reps: x.reps,
           dayOfWeek: x.dayOfWeek,
           sortOrder: i + 1,
+          restSeconds: x.restSeconds,
         ),
       );
     }
@@ -160,6 +172,12 @@ class FakePlanRepository implements PlanRepository {
   Future<void> savePlan(int planId) async {
     await Future<void>.delayed(_latency);
     (_s.saved[_uid] ??= {}).add(planId);
+  }
+
+  @override
+  Future<void> unsavePlan(int planId) async {
+    await Future<void>.delayed(_latency);
+    _s.saved[_uid]?.remove(planId);
   }
 }
 
@@ -186,7 +204,7 @@ class FakeWorkoutRepository implements WorkoutRepository {
           loggedAt: today,
           totalSetsDone: l.setsDone,
           totalRepsDone: l.repsDone,
-        )
+        ),
       ));
     }
   }

@@ -3,9 +3,9 @@
 library;
 
 enum Difficulty {
-  easy('EASY', 'Easy'),
-  medium('MEDIUM', 'Medium'),
-  hard('HARD', 'Hard');
+  easy('EASY', 'Beginner'),
+  medium('MEDIUM', 'Intermediate'),
+  hard('HARD', 'Advanced');
 
   const Difficulty(this.db, this.label);
   final String db;
